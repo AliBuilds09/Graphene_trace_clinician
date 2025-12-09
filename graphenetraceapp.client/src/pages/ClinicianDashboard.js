@@ -8,6 +8,7 @@ import Heatmap from '../components/Heatmap.js';
 import LineChart from '../components/LineChart.js';
 import HistoryCard from '../components/HistoryCard.js';
 import axios from 'axios';
+import jsPDF from 'jspdf'; // Added for PDF generation
 
 const ClinicianDashboard = () => {
     const [data, setData] = useState(null);
@@ -122,14 +123,30 @@ const ClinicianDashboard = () => {
         }
     };
 
-    // Added: Handler for downloading patient history (client-side)
+    // Updated: Handler for downloading patient history (now generates PDF)
     const handleDownload = (historyItem) => {
-        const dataStr = JSON.stringify(historyItem, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', `history_${historyItem.historyID}.json`);
-        linkElement.click();
+        const doc = new jsPDF();
+
+        // Title
+        doc.setFontSize(20);
+        doc.text('History Snapshot', 20, 30);
+
+        // Timestamp
+        doc.setFontSize(12);
+        doc.text(`Timestamp: ${new Date(historyItem.snapshotAt).toLocaleString()}`, 20, 50);
+
+        // KPIs
+        if (historyItem.measurement) {
+            doc.text(`Peak Pressure: ${historyItem.measurement.peakPressure?.toFixed(2) || '0.00'} mmHg`, 20, 70);
+            doc.text(`Contact Area: ${historyItem.measurement.contactArea?.toFixed(2) || '0.00'} %`, 20, 80);
+            doc.text(`Average Pressure: ${historyItem.measurement.avgPressure?.toFixed(2) || '0.00'} mmHg`, 20, 90);
+        }
+
+        // Note for visuals
+        doc.text('Heatmap and Line Chart: Visual data not included in PDF. View in the app for details.', 20, 110);
+
+        // Save the PDF
+        doc.save(`history_${historyItem.historyID}.pdf`);
     };
 
     const parseHeatmapData = (heatmapDataJson) => {

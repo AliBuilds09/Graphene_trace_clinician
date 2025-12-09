@@ -35,6 +35,7 @@ const MessageThread = () => {
             });
             setConversations(response.data);
             setLoading(false);
+            return response.data; // Return data for immediate use after send
         } catch (err) {
             if (err.response && err.response.status === 401) {
                 setError('Authentication failed. Please log in again.');
@@ -50,6 +51,7 @@ const MessageThread = () => {
                 setError('Failed to load conversations');
             }
             setLoading(false);
+            return null;
         }
     };
 
@@ -70,11 +72,15 @@ const MessageThread = () => {
             }, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setNewMessage('');
-            fetchConversations();
-            if (selectedConversation) {
-                selectConversation(selectedConversation);
+            // Immediately update UI by refetching and re-selecting
+            const updatedConversations = await fetchConversations();
+            if (updatedConversations) {
+                const updatedConv = updatedConversations.find(c => c.userID === selectedConversation.userID);
+                if (updatedConv) {
+                    selectConversation(updatedConv);
+                }
             }
+            setNewMessage('');
         } catch (err) {
             setError('Failed to send message');
         } finally {

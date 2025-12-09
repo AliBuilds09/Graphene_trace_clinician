@@ -1,4 +1,4 @@
-// src/pages/ComparePage.js
+// src/pages/ClinicianComparePage.js
 
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar.js';
@@ -15,6 +15,7 @@ const ClinicianComparePage = () => {
     const [comparisonResult, setComparisonResult] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [comparing, setComparing] = useState(false);
 
     const token = localStorage.getItem('token');
     const userId = localStorage.getItem('userId');
@@ -41,7 +42,7 @@ const ClinicianComparePage = () => {
             });
             setAllocatedPatients(response.data);
         } catch (err) {
-            setError('Failed to load allocated patients');
+            setError('Failed to load allocated patients. Please try again.');
         }
     };
 
@@ -54,38 +55,49 @@ const ClinicianComparePage = () => {
             setSnapshots(response.data);
             setError('');
         } catch (err) {
-            setError('Failed to load snapshots');
+            setError('Failed to load snapshots. Please check your connection.');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCompare = () => {
+    const handleCompare = async () => {
         if (!firstSnapshotId || !secondSnapshotId) {
-            alert('Please select both snapshots to compare.');
+            setError('Please select both snapshots to compare.');
             return;
         }
         if (firstSnapshotId === secondSnapshotId) {
-            alert('Please select two different snapshots.');
+            setError('Please select two different snapshots.');
             return;
         }
 
-        const snap1 = snapshots.find(s => s.historyID == firstSnapshotId);
-        const snap2 = snapshots.find(s => s.historyID == secondSnapshotId);
+        setComparing(true);
+        setError('');
 
-        if (!snap1 || !snap2) return;
+        // Simulate a brief loading for comparison
+        setTimeout(() => {
+            const snap1 = snapshots.find(s => s.historyID == firstSnapshotId);
+            const snap2 = snapshots.find(s => s.historyID == secondSnapshotId);
 
-        const measurement1 = snap1.measurement;
-        const measurement2 = snap2.measurement;
+            if (!snap1 || !snap2) {
+                setError('Selected snapshots not found.');
+                setComparing(false);
+                return;
+            }
 
-        const difference = {
-            peakPressure: measurement2.peakPressure - measurement1.peakPressure,
-            contactArea: measurement2.contactArea - measurement1.contactArea,
-            lowPressure: measurement2.lowPressure - measurement1.lowPressure,
-            avgPressure: measurement2.avgPressure - measurement1.avgPressure,
-        };
+            const measurement1 = snap1.measurement;
+            const measurement2 = snap2.measurement;
 
-        setComparisonResult({ snap1, snap2, difference });
+            const difference = {
+                peakPressure: measurement2.peakPressure - measurement1.peakPressure,
+                contactArea: measurement2.contactArea - measurement1.contactArea,
+                lowPressure: measurement2.lowPressure - measurement1.lowPressure,
+                avgPressure: measurement2.avgPressure - measurement1.avgPressure,
+            };
+
+            setComparisonResult({ snap1, snap2, difference });
+            setComparing(false);
+        }, 1000); // Brief delay for UX
     };
 
     const downloadPDF = () => {
@@ -102,7 +114,7 @@ const ClinicianComparePage = () => {
         doc.setFontSize(14);
         doc.setFont('helvetica', 'normal');
         doc.text(`Comparison Report - ${currentDate}`, 14, 32);
-        doc.text(`Comparing snapshots:`, 14, 42);
+        doc.text('Comparing snapshots:', 14, 42);
         doc.text(`- ${new Date(snap1.snapshotAt).toLocaleString()}`, 14, 50);
         doc.text(`- ${new Date(snap2.snapshotAt).toLocaleString()}`, 14, 58);
 
@@ -138,106 +150,205 @@ const ClinicianComparePage = () => {
         doc.save(filename);
     };
 
-    return (
-        <div className="d-flex">
-            <Sidebar role="clinician" />
-            <main className="flex-grow-1 p-4">
-                <h2>Compare Patient Data</h2>
-                {error && <div className="alert alert-danger">{error}</div>}
+    // Helper function to parse heatmap data (assuming it's a JSON string of values array)
+    const parseHeatmapData = (heatmapDataJson) => {
+        try {
+            return JSON.parse(heatmapDataJson) || [];
+        } catch (e) {
+            console.error('Error parsing heatmap data:', e);
+            return [];
+        }
+    };
 
-                <div className="mb-3">
-                    <label htmlFor="patient-select" className="form-label">Choose Patient</label>
-                    <select
-                        id="patient-select"
-                        className="form-select"
-                        value={selectedPatientId}
-                        onChange={(e) => setSelectedPatientId(e.target.value)}
-                        disabled={loading}
-                    >
-                        <option value="">-- Select Patient --</option>
-                        {allocatedPatients.map(patient => (
-                            <option key={patient.patientID} value={patient.patientID}>{patient.name}</option>
-                        ))}
-                    </select>
+    return (
+        <div className="d-flex vh-100" style={{ background: 'linear-gradient(135deg, #f5f7fa, #c9e6ff)', overflow: 'hidden' }}>
+            <Sidebar role="clinician" />
+            <main className="flex-grow-1 p-4" style={{ overflowY: 'auto' }}>
+                <div className="text-center mb-5">
+                    <h1 className="display-4 fw-bold text-primary" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.1)', animation: 'fadeIn 1s ease-in' }}>
+                        <i className="bi bi-bar-chart-line me-3"></i>Patient Data Comparison
+                    </h1>
+                    <p className="lead text-muted" style={{ animation: 'fadeIn 1.5s ease-in' }}>Analyze and compare pressure snapshots for better insights.</p>
                 </div>
 
-                {loading && <p>Loading snapshots...</p>}
-
-                {snapshots.length > 0 && (
-                    <>
-                        <div className="row g-3 mb-3">
-                            <div className="col-md-6">
-                                <label htmlFor="first-snapshot" className="form-label">First Snapshot</label>
-                                <select
-                                    id="first-snapshot"
-                                    className="form-select"
-                                    value={firstSnapshotId}
-                                    onChange={(e) => setFirstSnapshotId(e.target.value)}
-                                >
-                                    <option value="">-- Select First Snapshot --</option>
-                                    {snapshots.map(s => (
-                                        <option key={s.historyID} value={s.historyID}>{new Date(s.snapshotAt).toLocaleString()}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="col-md-6">
-                                <label htmlFor="second-snapshot" className="form-label">Second Snapshot</label>
-                                <select
-                                    id="second-snapshot"
-                                    className="form-select"
-                                    value={secondSnapshotId}
-                                    onChange={(e) => setSecondSnapshotId(e.target.value)}
-                                >
-                                    <option value="">-- Select Second Snapshot --</option>
-                                    {snapshots.map(s => (
-                                        <option key={s.historyID} value={s.historyID}>{new Date(s.snapshotAt).toLocaleString()}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                        <button className="btn btn-primary mb-4" onClick={handleCompare}>Compare</button>
-                    </>
+                {error && (
+                    <div className="alert alert-danger text-center shadow-lg mb-4" style={{ borderRadius: '20px', maxWidth: '600px', margin: '0 auto' }}>
+                        <i className="bi bi-exclamation-triangle-fill fs-1 mb-3"></i>
+                        <h5>Oops!</h5>
+                        <p>{error}</p>
+                    </div>
                 )}
 
-                {comparisonResult && (
-                    <div>
-                        <h3>Comparison Result</h3>
-                        <table className="table table-bordered text-center">
-                            <thead>
-                                <tr>
-                                    <th>KPI</th>
-                                    <th>{new Date(comparisonResult.snap1.snapshotAt).toLocaleString()}</th>
-                                    <th>{new Date(comparisonResult.snap2.snapshotAt).toLocaleString()}</th>
-                                    <th>Difference</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {['peakPressure', 'contactArea', 'lowPressure', 'avgPressure'].map(kpi => (
-                                    <tr key={kpi}>
-                                        <td>{kpi.charAt(0).toUpperCase() + kpi.slice(1).replace(/([A-Z])/g, ' $1')}</td>
-                                        <td>{comparisonResult.snap1.measurement[kpi]}</td>
-                                        <td>{comparisonResult.snap2.measurement[kpi]}</td>
-                                        <td>{comparisonResult.difference[kpi] > 0 ? '+' : ''}{comparisonResult.difference[kpi]}</td>
-                                    </tr>
+                <div className="card shadow-lg p-4 mb-4" style={{ borderRadius: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)' }}>
+                    <h5 className="fw-bold text-primary mb-3">
+                        <i className="bi bi-person-lines-fill me-2"></i>Select Patient & Snapshots
+                    </h5>
+                    <div className="row g-3">
+                        <div className="col-md-12 mb-3">
+                            <label htmlFor="patient-select" className="form-label fw-semibold">
+                                <i className="bi bi-person me-2"></i>Choose Patient
+                            </label>
+                            <select
+                                id="patient-select"
+                                className="form-select rounded-pill shadow-sm"
+                                value={selectedPatientId}
+                                onChange={(e) => setSelectedPatientId(e.target.value)}
+                                disabled={loading}
+                                style={{ transition: 'box-shadow 0.3s ease' }}
+                            >
+                                <option value="">-- Select Patient --</option>
+                                {allocatedPatients.map(patient => (
+                                    <option key={patient.patientID} value={patient.patientID}>{patient.name}</option>
                                 ))}
-                            </tbody>
-                        </table>
-                        <div className="row">
+                            </select>
+                        </div>
+
+                        {loading && (
+                            <div className="col-12 text-center">
+                                <div className="spinner-border text-primary" role="status">
+                                    <span className="visually-hidden">Loading...</span>
+                                </div>
+                                <p className="mt-2">Loading snapshots...</p>
+                            </div>
+                        )}
+
+                        {snapshots.length > 0 && (
+                            <>
+                                <div className="col-md-6">
+                                    <label htmlFor="first-snapshot" className="form-label fw-semibold">
+                                        <i className="bi bi-calendar-event me-2"></i>First Snapshot
+                                    </label>
+                                    <select
+                                        id="first-snapshot"
+                                        className="form-select rounded-pill shadow-sm"
+                                        value={firstSnapshotId}
+                                        onChange={(e) => setFirstSnapshotId(e.target.value)}
+                                        style={{ transition: 'box-shadow 0.3s ease' }}
+                                    >
+                                        <option value="">-- Select First Snapshot --</option>
+                                        {snapshots.map(s => (
+                                            <option key={s.historyID} value={s.historyID}>{new Date(s.snapshotAt).toLocaleString()}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="col-md-6">
+                                    <label htmlFor="second-snapshot" className="form-label fw-semibold">
+                                        <i className="bi bi-calendar-check me-2"></i>Second Snapshot
+                                    </label>
+                                    <select
+                                        id="second-snapshot"
+                                        className="form-select rounded-pill shadow-sm"
+                                        value={secondSnapshotId}
+                                        onChange={(e) => setSecondSnapshotId(e.target.value)}
+                                        style={{ transition: 'box-shadow 0.3s ease' }}
+                                    >
+                                        <option value="">-- Select Second Snapshot --</option>
+                                        {snapshots.map(s => (
+                                            <option key={s.historyID} value={s.historyID}>{new Date(s.snapshotAt).toLocaleString()}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="col-12 text-center mt-3">
+                                    <button
+                                        className="btn btn-primary rounded-pill px-5 py-2 shadow-sm"
+                                        onClick={handleCompare}
+                                        disabled={comparing}
+                                        style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none', transition: 'all 0.3s ease' }}
+                                    >
+                                        {comparing ? (
+                                            <>
+                                                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                                Comparing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <i className="bi bi-arrow-left-right me-2"></i>Compare Snapshots
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {comparisonResult && (
+                    <div className="card shadow-lg p-4" style={{ borderRadius: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)', animation: 'fadeIn 1s ease-in' }}>
+                        <h3 className="fw-bold text-primary mb-4 text-center">
+                            <i className="bi bi-graph-up me-2"></i>Comparison Results
+                        </h3>
+
+                        <div className="table-responsive mb-4">
+                            <table className="table table-striped table-hover text-center shadow-sm" style={{ borderRadius: '15px', overflow: 'hidden' }}>
+                                <thead className="table-dark">
+                                    <tr>
+                                        <th className="fw-bold">KPI</th>
+                                        <th className="fw-bold">{new Date(comparisonResult.snap1.snapshotAt).toLocaleString()}</th>
+                                        <th className="fw-bold">{new Date(comparisonResult.snap2.snapshotAt).toLocaleString()}</th>
+                                        <th className="fw-bold">Difference</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {['peakPressure', 'contactArea', 'lowPressure', 'avgPressure'].map(kpi => (
+                                        <tr key={kpi}>
+                                            <td className="fw-semibold">{kpi.charAt(0).toUpperCase() + kpi.slice(1).replace(/([A-Z])/g, ' $1')}</td>
+                                            <td>{comparisonResult.snap1.measurement[kpi]}</td>
+                                            <td>{comparisonResult.snap2.measurement[kpi]}</td>
+                                            <td className={comparisonResult.difference[kpi] > 0 ? 'text-success' : comparisonResult.difference[kpi] < 0 ? 'text-danger' : 'text-muted'}>
+                                                {comparisonResult.difference[kpi] > 0 ? '+' : ''}{comparisonResult.difference[kpi]}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="row g-4 mb-4">
                             <div className="col-md-6">
-                                <h5>Heatmap 1</h5>
-                                {comparisonResult.snap1.measurement.heatmapData ? (
-                                    <Heatmap values={JSON.parse(comparisonResult.snap1.measurement.heatmapData)} size={320} />
-                                ) : <p>No heatmap data</p>}
+                                <div className="card shadow-sm" style={{ borderRadius: '15px' }}>
+                                    <div className="card-header bg-primary text-white text-center fw-bold" style={{ borderRadius: '15px 15px 0 0' }}>
+                                        <i className="bi bi-thermometer-half me-2"></i>Heatmap 1
+                                    </div>
+                                    <div className="card-body text-center">
+                                        {comparisonResult.snap1.measurement.heatmapData ? (
+                                            <Heatmap values={parseHeatmapData(comparisonResult.snap1.measurement.heatmapData)} size={320} />
+                                        ) : (
+                                            <div className="alert alert-warning rounded-pill">
+                                                <i className="bi bi-exclamation-triangle me-2"></i>No heatmap data available
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                             <div className="col-md-6">
-                                <h5>Heatmap 2</h5>
-                                {comparisonResult.snap2.measurement.heatmapData ? (
-                                    <Heatmap values={JSON.parse(comparisonResult.snap2.measurement.heatmapData)} size={320} />
-                                ) : <p>No heatmap data</p>}
+                                <div className="card shadow-sm" style={{ borderRadius: '15px' }}>
+                                    <div className="card-header bg-success text-white text-center fw-bold" style={{ borderRadius: '15px 15px 0 0' }}>
+                                        <i className="bi bi-thermometer-high me-2"></i>Heatmap 2
+                                    </div>
+                                    <div className="card-body text-center">
+                                        {comparisonResult.snap2.measurement.heatmapData ? (
+                                            <Heatmap values={parseHeatmapData(comparisonResult.snap2.measurement.heatmapData)} size={320} />
+                                        ) : (
+                                            <div className="alert alert-warning rounded-pill">
+                                                <i className="bi bi-exclamation-triangle me-2"></i>No heatmap data available
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <button className="btn btn-success" onClick={downloadPDF}>Download as PDF</button>
+
+                        <div className="text-center">
+                            <button
+                                className="btn btn-success rounded-pill px-5 py-2 shadow-sm"
+                                onClick={downloadPDF}
+                                style={{ background: 'linear-gradient(135deg, #28a745, #20c997)', border: 'none', transition: 'all 0.3s ease' }}
+                            >
+                                <i className="bi bi-download me-2"></i>Download Report as PDF
+                            </button>
+                        </div>
                     </div>
                 )}
             </main>

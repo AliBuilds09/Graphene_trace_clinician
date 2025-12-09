@@ -121,8 +121,12 @@ namespace GrapheneTraceApp.Api.Controllers
                         patient.Name = profileData.name;
                         patient.Email = profileData.email;
                         patient.Phone = profileData.phone;
+                        // Also update the Users table to keep it in sync
+                        user.Name = profileData.name;
+                        user.Email = profileData.email;
+                        user.Phone = profileData.phone;
                         _context.SaveChanges();
-                        Console.WriteLine("Patient profile updated");
+                        Console.WriteLine("Patient profile updated (including Users table)");
                         return Ok("Profile updated successfully.");
                     }
                 }
@@ -134,8 +138,12 @@ namespace GrapheneTraceApp.Api.Controllers
                         clinician.Name = profileData.name;
                         clinician.Email = profileData.email;
                         clinician.Phone = profileData.phone;
+                        // Also update the Users table to keep it in sync
+                        user.Name = profileData.name;
+                        user.Email = profileData.email;
+                        user.Phone = profileData.phone;
                         _context.SaveChanges();
-                        Console.WriteLine("Clinician profile updated");
+                        Console.WriteLine("Clinician profile updated (including Users table)");
                         return Ok("Profile updated successfully.");
                     }
                 }

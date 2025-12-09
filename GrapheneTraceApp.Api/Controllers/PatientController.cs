@@ -288,10 +288,9 @@ namespace GrapheneTraceApp.Api.Controllers
                     .ToListAsync();
                 Console.WriteLine("Alerts count: " + alerts.Count);
 
-                // Parse allocated CSVs but limit to 1 CSV and 10 frames for speed
+                // Parse allocated CSVs sequentially (all 3 files)
                 var patientDatas = await _context.PatientDatas
                     .Where(pd => pd.PatientID == patient.PatientID)
-                    .Take(1)  // Limit to 1 CSV
                     .ToListAsync();
                 Console.WriteLine("PatientDatas count: " + patientDatas.Count);
 
@@ -303,11 +302,10 @@ namespace GrapheneTraceApp.Api.Controllers
                         var frames = await ParseCsv(pd.FilePath);
                         if (frames.Count > 0)
                         {
-                            var limitedFrames = frames.Take(10).ToList();  // Limit to 10 frames
-                            var totalFrames = limitedFrames.Count;
+                            var totalFrames = frames.Count;
                             var totalTime = totalFrames / 15.0; // 15 fps
                             var refreshMs = 3000; // Fixed refresh time: 3 seconds
-                            csvData.Add(new { FileName = pd.FileName, Frames = limitedFrames, TotalFrames = totalFrames, TotalTime = totalTime, RefreshMs = refreshMs });
+                            csvData.Add(new { FileName = pd.FileName, Frames = frames, TotalFrames = totalFrames, TotalTime = totalTime, RefreshMs = refreshMs });
                             Console.WriteLine($"Added CSV data for {pd.FileName} with {totalFrames} frames, refresh {refreshMs} ms");
                         }
                         else
@@ -579,7 +577,6 @@ namespace GrapheneTraceApp.Api.Controllers
                 Console.WriteLine($"Error generating alerts: {ex.Message}");
             }
         }
-
 
         // DELETE: api/patient/history/{historyId}
         [HttpDelete("history/{historyId}")]

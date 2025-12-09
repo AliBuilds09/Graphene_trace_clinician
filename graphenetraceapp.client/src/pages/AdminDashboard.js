@@ -8,6 +8,7 @@ import HistoryCard from '../components/HistoryCard.js'; // Added for history dis
 import KPICard from '../components/KPICards.js'; // Added for modal KPIs
 import Heatmap from '../components/Heatmap.js'; // Added for modal heatmap
 import LineChart from '../components/LineChart.js'; // Added for modal line chart
+import jsPDF from 'jspdf'; // Added for PDF generation
 
 const AdminDashboard = () => {
     const [users, setUsers] = useState([]);
@@ -23,12 +24,12 @@ const AdminDashboard = () => {
     const [selectedHistory, setSelectedHistory] = useState(null); // Added for modal
     const [showHistoryModal, setShowHistoryModal] = useState(false); // Added for modal
     const [historyLoading, setHistoryLoading] = useState(false); // Added for loading
-    const [userName, setUserName] = useState(''); // Added for user name
+    const [userName, setUserName] = useState('Admin'); // Static value to avoid API call
     const token = localStorage.getItem('token');
 
     useEffect(() => {
         fetchData();
-        fetchUserName(); // Added to fetch user name
+        // Removed fetchUserName to avoid 404 error
     }, []);
 
     const fetchData = async () => {
@@ -45,19 +46,6 @@ const AdminDashboard = () => {
         } catch (err) {
             setError('Failed to load data');
             console.error(err);
-        }
-    };
-
-    const fetchUserName = async () => {
-        try {
-            const userId = localStorage.getItem('userId');
-            const response = await axios.get(`http://localhost:5033/api/user/${userId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setUserName(response.data.name || 'Admin');
-        } catch (err) {
-            console.error('Error fetching user name:', err);
-            setUserName('Admin'); // Default
         }
     };
 
@@ -121,6 +109,20 @@ const AdminDashboard = () => {
             fetchData();
         } catch (err) {
             setError('Failed to delete user');
+            console.error(err);
+        }
+    };
+
+    const handleDeleteHistory = async (historyId) => {
+        if (!window.confirm('Are you sure you want to delete this history item?')) return;
+        try {
+            await axios.delete(`http://localhost:5033/api/admin/history/${historyId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            // Refresh history after deletion
+            handlePatientSelect(selectedPatientId);
+        } catch (err) {
+            setError('Failed to delete history');
             console.error(err);
         }
     };
@@ -191,8 +193,7 @@ const AdminDashboard = () => {
                                         <td>{user.phone}</td>
                                         <td>{user.role}</td>
                                         <td>
-                                            <Button variant="warning" size="sm" onClick={() => handleEdit(user)} className="me-2">Edit</Button>
-                                            <Button variant="danger" size="sm" onClick={() => handleDelete(user.userId)}>Delete</Button>
+                                            <Button variant="warning" size="sm" onClick={() => handleEdit(user)}>Edit</Button>
                                         </td>
                                     </tr>
                                 ))}
@@ -265,14 +266,30 @@ const AdminDashboard = () => {
                                                 historyItem={h}
                                                 onClick={() => openHistoryModal(h)}
                                                 onSave={() => alert('Save not implemented for admin')}
-                                                onDelete={() => alert('Delete not implemented for admin')}
+                                                onDelete={() => handleDeleteHistory(h.historyID)} // Now calls delete function
                                                 onDownload={() => {
-                                                    const dataStr = JSON.stringify(h, null, 2);
-                                                    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-                                                    const linkElement = document.createElement('a');
-                                                    linkElement.setAttribute('href', dataUri);
-                                                    linkElement.setAttribute('download', `history_${h.historyID}.json`);
-                                                    linkElement.click();
+                                                    const doc = new jsPDF();
+
+                                                    // Title
+                                                    doc.setFontSize(20);
+                                                    doc.text('History Snapshot', 20, 30);
+
+                                                    // Timestamp
+                                                    doc.setFontSize(12);
+                                                    doc.text(`Timestamp: ${new Date(h.snapshotAt).toLocaleString()}`, 20, 50);
+
+                                                    // KPIs
+                                                    if (h.measurement) {
+                                                        doc.text(`Peak Pressure: ${h.measurement.peakPressure?.toFixed(2) || '0.00'} mmHg`, 20, 70);
+                                                        doc.text(`Contact Area: ${h.measurement.contactArea?.toFixed(2) || '0.00'} %`, 20, 80);
+                                                        doc.text(`Average Pressure: ${h.measurement.avgPressure?.toFixed(2) || '0.00'} mmHg`, 20, 90);
+                                                    }
+
+                                                    // Note for visuals
+                                                    doc.text('Heatmap and Line Chart: Visual data not included in PDF. View in the app for details.', 20, 110);
+
+                                                    // Save the PDF
+                                                    doc.save(`history_${h.historyID}.pdf`);
                                                 }}
                                             />
                                         </div>
@@ -306,7 +323,7 @@ const AdminDashboard = () => {
                             </Form.Group>
                             <Form.Group className="mb-3" controlId="formRole">
                                 <Form.Label>Role</Form.Label>
-                                <Form.Select name="role" value={editForm.role} onChange={handleEditChange} required>
+                                <Form.Select name="role" value={editForm.role} onChange={handleEditChange} disabled> {/* Disabled to prevent role changes */}
                                     <option value="patient">Patient</option>
                                     <option value="clinician">Clinician</option>
                                     <option value="admin">Admin</option>

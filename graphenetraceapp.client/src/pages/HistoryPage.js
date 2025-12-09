@@ -6,6 +6,7 @@ import KPICard from '../components/KPICards.js';
 import Heatmap from '../components/Heatmap.js';
 import LineChart from '../components/LineChart.js';
 import HistoryCard from '../components/HistoryCard.js';
+import jsPDF from 'jspdf'; // Added for PDF generation
 
 const HistoryPage = () => {
     const [history, setHistory] = useState([]);
@@ -14,6 +15,7 @@ const HistoryPage = () => {
     const [error, setError] = useState(null);
     const [selectedHistory, setSelectedHistory] = useState(null);
     const [showModal, setShowModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview'); // For modal tabs
 
     const [selectedDate, setSelectedDate] = useState('');
     const [timeRange, setTimeRange] = useState('all');
@@ -135,17 +137,34 @@ const HistoryPage = () => {
     };
 
     const handleDownload = (historyItem) => {
-        const dataStr = JSON.stringify(historyItem, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', `history_${historyItem.historyID}.json`);
-        linkElement.click();
+        const doc = new jsPDF();
+
+        // Title
+        doc.setFontSize(20);
+        doc.text('History Snapshot', 20, 30);
+
+        // Timestamp
+        doc.setFontSize(12);
+        doc.text(`Timestamp: ${new Date(historyItem.snapshotAt).toLocaleString()}`, 20, 50);
+
+        // KPIs
+        if (historyItem.measurement) {
+            doc.text(`Peak Pressure: ${historyItem.measurement.peakPressure?.toFixed(2) || '0.00'} mmHg`, 20, 70);
+            doc.text(`Contact Area: ${historyItem.measurement.contactArea?.toFixed(2) || '0.00'} %`, 20, 80);
+            doc.text(`Average Pressure: ${historyItem.measurement.avgPressure?.toFixed(2) || '0.00'} mmHg`, 20, 90);
+        }
+
+        // Note for visuals
+        doc.text('Heatmap and Line Chart: Visual data not included in PDF. View in the app for details.', 20, 110);
+
+        // Save the PDF
+        doc.save(`history_${historyItem.historyID}.pdf`);
     };
 
     const openModal = (historyItem) => {
         setSelectedHistory(historyItem);
         setShowModal(true);
+        setActiveTab('overview'); // Reset to overview tab
     };
 
     const closeModal = () => {
@@ -192,37 +211,37 @@ const HistoryPage = () => {
     if (loading) return (
         <div className="d-flex justify-content-center align-items-center vh-100" style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
             <div className="text-center text-white">
-                <div className="spinner-border" role="status"></div>
-                <p className="mt-3">Loading history...</p>
+                <div className="spinner-border" role="status" style={{ width: '3rem', height: '3rem' }}></div>
+                <p className="mt-3 fs-5">Loading history...</p>
             </div>
         </div>
     );
     if (error) return (
         <div className="d-flex justify-content-center align-items-center vh-100" style={{ background: 'linear-gradient(135deg, #ff9a9e, #fecfef)' }}>
-            <div className="alert alert-danger text-center shadow-lg" style={{ maxWidth: '500px' }}>
+            <div className="alert alert-danger text-center shadow-lg" style={{ maxWidth: '500px', borderRadius: '20px' }}>
                 <i className="bi bi-exclamation-triangle-fill fs-1 mb-3"></i>
                 <h4>Oops!</h4>
                 <p>{error}</p>
-                <button className="btn btn-outline-danger" onClick={() => window.location.reload()}>Retry</button>
+                <button className="btn btn-outline-danger rounded-pill px-4" onClick={() => window.location.reload()}>Retry</button>
             </div>
         </div>
     );
 
     return (
-        <div className="d-flex vh-100" style={{ background: 'linear-gradient(135deg, #f5f7fa, #c9e6ff)' }}>
+        <div className="d-flex vh-100" style={{ background: 'linear-gradient(135deg, #f5f7fa, #c9e6ff)', overflow: 'hidden' }}>
             <Sidebar role="patient" />
-            <main className="flex-grow-1 p-4">
+            <main className="flex-grow-1 p-4" style={{ overflowY: 'auto' }}>
                 <div className="text-center mb-5">
-                    <h1 className="display-4 fw-bold text-primary" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.1)' }}>
+                    <h1 className="display-4 fw-bold text-primary" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.1)', animation: 'fadeIn 1s ease-in' }}>
                         <i className="bi bi-clock-history me-3"></i>Measurement History
                     </h1>
-                    <p className="lead text-muted">Explore your past pressure readings with advanced filters.</p>
+                    <p className="lead text-muted" style={{ animation: 'fadeIn 1.5s ease-in' }}>Explore your past pressure readings with advanced filters and insights.</p>
                 </div>
 
-                {/* Summary Stats */}
+                {/* Summary Stats with Enhanced Styling */}
                 <div className="row g-3 mb-4">
                     <div className="col-md-3">
-                        <div className="card shadow-lg text-center" style={{ borderRadius: '15px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)' }}>
+                        <div className="card shadow-lg text-center hover-lift" style={{ borderRadius: '20px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)', transition: 'transform 0.3s ease' }}>
                             <div className="card-body">
                                 <i className="bi bi-graph-up fs-1 text-primary mb-2"></i>
                                 <h5 className="card-title">Total Records</h5>
@@ -231,7 +250,7 @@ const HistoryPage = () => {
                         </div>
                     </div>
                     <div className="col-md-3">
-                        <div className="card shadow-lg text-center" style={{ borderRadius: '15px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)' }}>
+                        <div className="card shadow-lg text-center hover-lift" style={{ borderRadius: '20px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)', transition: 'transform 0.3s ease' }}>
                             <div className="card-body">
                                 <i className="bi bi-thermometer-half fs-1 text-danger mb-2"></i>
                                 <h5 className="card-title">Avg Peak Pressure</h5>
@@ -242,7 +261,7 @@ const HistoryPage = () => {
                         </div>
                     </div>
                     <div className="col-md-3">
-                        <div className="card shadow-lg text-center" style={{ borderRadius: '15px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)' }}>
+                        <div className="card shadow-lg text-center hover-lift" style={{ borderRadius: '20px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)', transition: 'transform 0.3s ease' }}>
                             <div className="card-body">
                                 <i className="bi bi-calendar-event fs-1 text-success mb-2"></i>
                                 <h5 className="card-title">Latest Entry</h5>
@@ -253,7 +272,7 @@ const HistoryPage = () => {
                         </div>
                     </div>
                     <div className="col-md-3">
-                        <div className="card shadow-lg text-center" style={{ borderRadius: '15px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)' }}>
+                        <div className="card shadow-lg text-center hover-lift" style={{ borderRadius: '20px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)', transition: 'transform 0.3s ease' }}>
                             <div className="card-body">
                                 <i className="bi bi-bell fs-1 text-warning mb-2"></i>
                                 <h5 className="card-title">Alerts</h5>
@@ -265,9 +284,10 @@ const HistoryPage = () => {
                     </div>
                 </div>
 
-                <div className="card shadow-lg p-4 mb-4" style={{ borderRadius: '15px', background: 'rgba(255, 255, 255, 0.9)' }}>
+                {/* Filters with Enhanced UI */}
+                <div className="card shadow-lg p-4 mb-4" style={{ borderRadius: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)' }}>
                     <h5 className="fw-bold text-primary mb-3">
-                        <i className="bi bi-funnel me-2"></i>Filters
+                        <i className="bi bi-funnel me-2"></i>Advanced Filters
                     </h5>
                     <div className="row g-3">
                         <div className="col-md-3">
@@ -276,9 +296,10 @@ const HistoryPage = () => {
                             </label>
                             <input
                                 type="date"
-                                className="form-control rounded-pill"
+                                className="form-control rounded-pill shadow-sm"
                                 value={selectedDate}
                                 onChange={(e) => setSelectedDate(e.target.value)}
+                                style={{ transition: 'box-shadow 0.3s ease' }}
                             />
                         </div>
                         <div className="col-md-3">
@@ -286,9 +307,10 @@ const HistoryPage = () => {
                                 <i className="bi bi-clock me-2"></i>Time Range
                             </label>
                             <select
-                                className="form-select rounded-pill"
+                                className="form-select rounded-pill shadow-sm"
                                 value={timeRange}
                                 onChange={(e) => setTimeRange(e.target.value)}
+                                style={{ transition: 'box-shadow 0.3s ease' }}
                             >
                                 <option value="all">All</option>
                                 <option value="6hours">Last 6 Hours</option>
@@ -305,9 +327,10 @@ const HistoryPage = () => {
                                     </label>
                                     <input
                                         type="datetime-local"
-                                        className="form-control rounded-pill"
+                                        className="form-control rounded-pill shadow-sm"
                                         value={customStart}
                                         onChange={(e) => setCustomStart(e.target.value)}
+                                        style={{ transition: 'box-shadow 0.3s ease' }}
                                     />
                                 </div>
                                 <div className="col-md-3">
@@ -316,27 +339,29 @@ const HistoryPage = () => {
                                     </label>
                                     <input
                                         type="datetime-local"
-                                        className="form-control rounded-pill"
+                                        className="form-control rounded-pill shadow-sm"
                                         value={customEnd}
                                         onChange={(e) => setCustomEnd(e.target.value)}
+                                        style={{ transition: 'box-shadow 0.3s ease' }}
                                     />
                                 </div>
                             </>
                         )}
                         <div className="col-md-3 d-flex align-items-end">
-                            <button className="btn btn-secondary rounded-pill px-4" onClick={resetFilters}>
+                            <button className="btn btn-secondary rounded-pill px-4 shadow-sm" onClick={resetFilters} style={{ transition: 'all 0.3s ease' }}>
                                 <i className="bi bi-arrow-counterclockwise me-2"></i>Reset
                             </button>
                         </div>
                     </div>
                 </div>
 
+                {/* History Cards Grid */}
                 <div className="row g-4">
                     {filteredHistory.map(h => (
                         <div key={h.historyID} className="col-md-6 col-lg-4">
                             <HistoryCard
                                 historyItem={h}
-                                onSave={handleSave} // Still passed for compatibility, but not used in HistoryCard
+                                onSave={handleSave}
                                 onDelete={handleDelete}
                                 onDownload={handleDownload}
                                 onClick={() => openModal(h)}
@@ -345,50 +370,104 @@ const HistoryPage = () => {
                     ))}
                 </div>
 
+                {/* Enhanced Modal */}
                 {showModal && selectedHistory && (
-                    <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}>
-                        <div className="modal-dialog modal-lg">
-                            <div className="modal-content" style={{ borderRadius: '20px' }}>
-                                <div className="modal-header bg-primary text-white" style={{ borderRadius: '20px 20px 0 0' }}>
-                                    <h5 className="modal-title">
-                                        <i className="bi bi-info-circle me-2"></i>{new Date(selectedHistory.snapshotAt).toLocaleString()}
+                    <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.8)', animation: 'fadeIn 0.5s ease' }}>
+                        <div className="modal-dialog modal-xl">
+                            <div className="modal-content" style={{ borderRadius: '25px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', animation: 'slideIn 0.5s ease' }}>
+                                <div className="modal-header bg-gradient-primary text-white" style={{ borderRadius: '25px 25px 0 0', background: 'linear-gradient(135deg, #667eea, #764ba2)' }}>
+                                    <h5 className="modal-title fs-4">
+                                        <i className="bi bi-info-circle me-2"></i>Detailed Snapshot - {new Date(selectedHistory.snapshotAt).toLocaleString()}
                                     </h5>
                                     <button type="button" className="btn-close btn-close-white" onClick={closeModal}></button>
                                 </div>
-                                <div className="modal-body">
-                                    {selectedHistory.measurement ? (
-                                        <>
-                                            <div className="row g-3 mb-4">
-                                                <div className="col-md-4">
-                                                    <KPICard title="Peak Pressure" value={selectedHistory.measurement.peakPressure?.toFixed(2) || '0.00'} unit="mmHg" showPressureLevel={true} />
-                                                </div>
-                                                <div className="col-md-4">
-                                                    <KPICard title="Contact Area" value={selectedHistory.measurement.contactArea?.toFixed(2) || '0.00'} unit="%" showPressureLevel={false} />
-                                                </div>
-                                                <div className="col-md-4">
-                                                    <KPICard title="Avg Pressure" value={selectedHistory.measurement.avgPressure?.toFixed(2) || '0.00'} unit="mmHg" showPressureLevel={false} />
+                                <div className="modal-body p-5">
+                                    {/* Tab Navigation */}
+                                    <ul className="nav nav-tabs nav-fill mb-4" id="historyTabs" role="tablist">
+                                        <li className="nav-item" role="presentation">
+                                            <button className={`nav-link ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>
+                                                <i className="bi bi-eye me-2"></i>Overview
+                                            </button>
+                                        </li>
+                                        <li className="nav-item" role="presentation">
+                                            <button className={`nav-link ${activeTab === 'heatmap' ? 'active' : ''}`} onClick={() => setActiveTab('heatmap')}>
+                                                <i className="bi bi-grid-3x3 me-2"></i>Heatmap
+                                            </button>
+                                        </li>
+                                        <li className="nav-item" role="presentation">
+                                            <button className={`nav-link ${activeTab === 'linechart' ? 'active' : ''}`} onClick={() => setActiveTab('linechart')}>
+                                                <i className="bi bi-graph-up me-2"></i>Line Chart
+                                            </button>
+                                        </li>
+                                        <li className="nav-item" role="presentation">
+                                            <button className={`nav-link ${activeTab === 'actions' ? 'active' : ''}`} onClick={() => setActiveTab('actions')}>
+                                                <i className="bi bi-gear me-2"></i>Actions
+                                            </button>
+                                        </li>
+                                    </ul>
+
+                                    {/* Tab Content */}
+                                    <div className="tab-content">
+                                        {activeTab === 'overview' && (
+                                            <div className="tab-pane fade show active">
+                                                {selectedHistory.measurement ? (
+                                                    <div className="row g-4">
+                                                        <div className="col-md-4">
+                                                            <KPICard title="Peak Pressure" value={selectedHistory.measurement.peakPressure?.toFixed(2) || '0.00'} unit="mmHg" showPressureLevel={true} />
+                                                        </div>
+                                                        <div className="col-md-4">
+                                                            <KPICard title="Contact Area" value={selectedHistory.measurement.contactArea?.toFixed(2) || '0.00'} unit="%" showPressureLevel={false} />
+                                                        </div>
+                                                        <div className="col-md-4">
+                                                            <KPICard title="Avg Pressure" value={selectedHistory.measurement.avgPressure?.toFixed(2) || '0.00'} unit="mmHg" showPressureLevel={false} />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="alert alert-info text-center rounded-pill">
+                                                        <i className="bi bi-info-circle me-2"></i>No measurement data available
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {activeTab === 'heatmap' && (
+                                            <div className="tab-pane fade show active">
+                                                {parseFrameData(selectedHistory.measurement?.frameData).values.length > 0 ? (
+                                                    <div className="d-flex justify-content-center">
+                                                        <Heatmap values={parseFrameData(selectedHistory.measurement.frameData).values} size={400} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="alert alert-warning text-center rounded-pill">
+                                                        <i className="bi bi-exclamation-triangle me-2"></i>No heatmap data available
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {activeTab === 'linechart' && (
+                                            <div className="tab-pane fade show active">
+                                                {parseLineChartData(selectedHistory.measurement?.lineChartData).length > 0 ? (
+                                                    <div className="d-flex justify-content-center">
+                                                        <LineChart labels={parseLineChartData(selectedHistory.measurement.lineChartData).map((_, i) => i)} dataPoints={parseLineChartData(selectedHistory.measurement.lineChartData)} />
+                                                    </div>
+                                                ) : (
+                                                    <div className="alert alert-warning text-center rounded-pill">
+                                                        <i className="bi bi-exclamation-triangle me-2"></i>No line chart data available
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {activeTab === 'actions' && (
+                                            <div className="tab-pane fade show active">
+                                                <div className="d-flex justify-content-center gap-3">
+                                                    <button className="btn btn-primary rounded-pill px-4 shadow-sm" onClick={() => handleDownload(selectedHistory)}>
+                                                        <i className="bi bi-download me-2"></i>Download PDF
+                                                    </button>
+                                                    <button className="btn btn-danger rounded-pill px-4 shadow-sm" onClick={() => { handleDelete(selectedHistory.historyID); closeModal(); }}>
+                                                        <i className="bi bi-trash me-2"></i>Delete
+                                                    </button>
                                                 </div>
                                             </div>
-                                            {parseFrameData(selectedHistory.measurement.frameData).values.length > 0 ? (
-                                                <Heatmap values={parseFrameData(selectedHistory.measurement.frameData).values} size={320} />
-                                            ) : (
-                                                <div className="alert alert-warning text-center">
-                                                    <i className="bi bi-exclamation-triangle me-2"></i>No heatmap data available
-                                                </div>
-                                            )}
-                                            {parseLineChartData(selectedHistory.measurement.lineChartData).length > 0 ? (
-                                                <LineChart labels={parseLineChartData(selectedHistory.measurement.lineChartData).map((_, i) => i)} dataPoints={parseLineChartData(selectedHistory.measurement.lineChartData)} />
-                                            ) : (
-                                                <div className="alert alert-warning text-center">
-                                                    <i className="bi bi-exclamation-triangle me-2"></i>No line chart data available
-                                                </div>
-                                            )}
-                                        </>
-                                    ) : (
-                                        <div className="alert alert-info text-center">
-                                            <i className="bi bi-info-circle me-2"></i>No measurement data available
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>
