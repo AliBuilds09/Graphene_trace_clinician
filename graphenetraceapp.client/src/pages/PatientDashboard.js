@@ -28,7 +28,7 @@ const PatientDashboard = () => {
         try {
             const response = await axios.get(`http://localhost:5033/api/patient/dashboard/${userId}`, {
                 headers: { Authorization: `Bearer ${token}` },
-                timeout: 5000
+                timeout: 10000
             });
             setData(response.data);
             setLoading(false);
